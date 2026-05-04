@@ -1,9 +1,10 @@
 library(readxl)
+library(ggplot2)
 
 # Insialisasi Data / Pembersihan Data
 # 1. Import file dengan baris pertama sebagai header
 OlahDataBI <- read_excel(
-  "C:/Users/ivand/OneDrive/Documents/KULIAH/Semester 3/UM142 - Indonesian Language/UJIAN DAN BELAJAR/RDump/OlahDataBI.xlsx",
+  "E:/Semester 4/English3/English3_ResearchPaperAttachment/Data_Group3.xlsx",
   col_names = TRUE)
 # 2. Hapus kolom yang seluruhnya NA (kolom kosong)
 OlahDataBI <- OlahDataBI[, colSums(is.na(OlahDataBI)) < nrow(OlahDataBI)]
@@ -15,10 +16,10 @@ names(OlahDataBI)
 # Tahap Pertama Uji Reliabilitas Variabel X dan Y
 library(psych)
 data_X <- OlahDataBI[, paste0("X", 1:7)]
-alpha(data_X)
+psych::alpha(data_X)
 
 data_Y <- OlahDataBI[, paste0("Y", 1:7)]
-alpha(data_Y)
+psych::alpha(data_Y)
 
 # Tahap Kedua Analisis Statistik Deskriptif
 
