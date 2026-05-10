@@ -1,317 +1,393 @@
+# ============================================================
+# Analisis Data Reasearch Paper English 3
+# Jumlah Responden 105
+# Asunsi X adalah Variabel Dependen dan Y Independen
+# ============================================================
+
+
+# 0. INSTALASI & LOADING PACKAGES
+
+# Packages List yang nantinya digunakan
+packages_needed <- c("readxl", "psych", "ggplot2", "dplyr", "tidyr",
+                     "ggpubr", "scales", "gridExtra")
+
+# Install otomatis jika belum ada
+installed <- rownames(installed.packages())
+for (pkg in packages_needed) {
+  if (!pkg %in% installed) {
+    install.packages(pkg, repos = "https://cloud.r-project.org")
+  }
+}
+
+# Load semua package
 library(readxl)
-library(ggplot2)
-
-# Insialisasi Data / Pembersihan Data
-# 1. Import file dengan baris pertama sebagai header
-OlahDataBI <- read_excel(
-  "C:\Users\ivand\Documents\Coding\English3\English3_ResearchPaperAttachment\Data_Group3.xlsx",
-  col_names = TRUE)
-# 2. Hapus kolom yang seluruhnya NA (kolom kosong)
-OlahDataBI <- OlahDataBI[, colSums(is.na(OlahDataBI)) < nrow(OlahDataBI)]
-# 3. Tampilkan nama kolom
-names(OlahDataBI)
-
-
-
-# Tahap Pertama Uji Reliabilitas Variabel X dan Y
 library(psych)
-data_X <- OlahDataBI[, paste0("X", 1:7)]
-psych::alpha(data_X)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(ggpubr)
+library(scales)
+library(gridExtra)
 
-data_Y <- OlahDataBI[, paste0("Y", 1:7)]
-psych::alpha(data_Y)
 
-# Tahap Kedua Analisis Statistik Deskriptif
+# 1. IMPORT & PEMBERSIHAN DATA
+# Sesuaikan path jika file dipindahkan
+file_path <- "Final_CLEANData.xlsx"
 
-# Variabel X
-describe(data_X)
-# Variabel Y
-describe(data_Y)
+raw_data <- read_excel(file_path, col_names = TRUE)
 
-# Kurva X
+# Hapus kolom yang seluruhnya NA (kolom pemisah kosong di Excel)
+raw_data <- raw_data[, colSums(is.na(raw_data)) < nrow(raw_data)]
 
-# Kurva Mean Variabel X
-data_Y$overall_mean <- rowMeans(data_X[, c("X1","X2","X3","X4","X5","X6","X7")])
-mean_overall <- mean(data_X$overall_mean)
-sd_overall   <- sd(data_X$overall_mean)
+# Validasi dataset yang masuk dan terbaca oleh file
+cat("INFO DATASET\n")
+cat("Jumlah responden :", nrow(raw_data), "\n")
+cat("Nama kolom       :", paste(names(raw_data), collapse = ", "), "\n\n")
 
-x_vals <- seq(1, 5, length.out = 300)
+# Pisahkan data per konstruk variabel
+data_X <- raw_data[, paste0("X", 1:7)]
+data_Y <- raw_data[, paste0("Y", 1:7)]
 
-gauss_curve <- data.frame(
-  x = x_vals,
-  density = (1 / (sd_overall * sqrt(2*pi))) * 
-    exp(-(x_vals - mean_overall)^2 / (2 * sd_overall^2))
+# Pastikan semua kolom numerik
+data_X <- mutate(data_X, across(everything(), as.numeric))
+data_Y <- mutate(data_Y, across(everything(), as.numeric))
+
+
+# 2. UJI RELIABILITAS DENGAN CRONBACH ALPHA
+cat("============================================================\n")
+cat("UJI RELIABILITAS (CRONBACH ALPHA)\n")
+cat("============================================================\n\n")
+
+cat("--- Reliabilitas Variabel X (X1–X7) ---\n")
+alpha_X <- psych::alpha(data_X)
+print(alpha_X$total)
+
+cat("\n--- Reliabilitas Variabel Y (Y1–Y7) ---\n")
+alpha_Y <- psych::alpha(data_Y)
+print(alpha_Y$total)
+
+
+# 3. ANALISIS STATISTIK DESKRIPTIF
+cat("============================================================\n")
+cat("ANALISIS STATISTIK DESKRIPTIF\n")
+cat("============================================================\n\n")
+
+cat("--- Statistik Deskriptif Variabel X ---\n")
+print(psych::describe(data_X))
+
+cat("\n--- Statistik Deskriptif Variabel Y ---\n")
+print(psych::describe(data_Y))
+
+# ============================================================
+# PLOT 1: Kurva Sebaran Frekuensi Nilai Likert Variabel X
+# ============================================================
+
+# Ubah ke format long untuk ggplot
+data_X_long <- data_X %>%
+  pivot_longer(cols = everything(), names_to = "Pertanyaan", values_to = "Nilai") %>%
+  group_by(Pertanyaan, Nilai) %>%
+  summarise(Frekuensi = n(), .groups = "drop")
+
+plot_freq_X <- ggplot(data_X_long, aes(x = Nilai, y = Frekuensi,
+                                        color = Pertanyaan, group = Pertanyaan)) +
+  geom_point(size = 2.5, alpha = 0.8) +
+  geom_smooth(method = "loess", se = FALSE, linewidth = 1.1, span = 1) +
+  scale_x_continuous(breaks = 1:5, limits = c(1, 5)) +
+  scale_color_brewer(palette = "Dark2") +
+  labs(
+    title    = "Frequency Distribution Curve of Likert Scale Scores – Variable X",
+    subtitle = "Distribution of respondents' answers for each statement item (X1–X7)",
+    x        = "Likert's Value (1–5)",
+    y        = "Frequency",
+    color    = "Point"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(
+    plot.title    = element_text(face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5, color = "gray40"),
+    legend.position = "bottom"
+  )
+
+print(plot_freq_X)
+
+# ============================================================
+# PLOT 2: Kurva Sebaran Frekuensi Nilai Likert Variabel Y
+# ============================================================
+
+data_Y_long <- data_Y %>%
+  pivot_longer(cols = everything(), names_to = "Pertanyaan", values_to = "Nilai") %>%
+  group_by(Pertanyaan, Nilai) %>%
+  summarise(Frekuensi = n(), .groups = "drop")
+
+plot_freq_Y <- ggplot(data_Y_long, aes(x = Nilai, y = Frekuensi,
+                                        color = Pertanyaan, group = Pertanyaan)) +
+  geom_point(size = 2.5, alpha = 0.8) +
+  geom_smooth(method = "loess", se = FALSE, linewidth = 1.1, span = 1) +
+  scale_x_continuous(breaks = 1:5, limits = c(1, 5)) +
+  scale_color_brewer(palette = "Set1") +
+  labs(
+    title    = "Frequency Distribution Curve of Likert Scale Scores – Variable Y",
+    subtitle = "Distribution of respondents' answers for each statement item (Y1–Y7)",
+    x        = "Likert Value (1–5)",
+    y        = "Frequency",
+    color    = "Point"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(
+    plot.title    = element_text(face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5, color = "gray40"),
+    legend.position = "bottom"
+  )
+
+print(plot_freq_Y)
+
+# =============================================================
+# PLOT 3: Kurva Gaussian, Mean Likert Variabel X per Responden
+# =============================================================
+
+mean_X_resp <- rowMeans(data_X, na.rm = TRUE)  # Mean X tiap responden
+mu_X  <- mean(mean_X_resp)
+sig_X <- sd(mean_X_resp)
+x_seq <- seq(1, 5, length.out = 500)
+
+gauss_X <- data.frame(
+  x       = x_seq,
+  density = dnorm(x_seq, mean = mu_X, sd = sig_X)
 )
 
-ggplot(gauss_curve, aes(x = x, y = density)) +
-  geom_line(linewidth = 1.3, color = "blue") +
-  geom_vline(xintercept = mean_overall, 
-             linetype = "dashed", linewidth = 1) +
-  labs(
-    title = "Kurva Gaussian dari Rata-rata Likert Tiap Responden",
-    x = "Overall Mean Likert (1–5)",
-    y = "Density"
+plot_gauss_X <- ggplot() +
+  geom_histogram(
+    data = data.frame(v = mean_X_resp),
+    aes(x = v, y = after_stat(density)),
+    bins = 15, fill = "#4E79A7", alpha = 0.4, color = "white"
   ) +
-  coord_cartesian(xlim = c(1, 5)) + 
-  theme_minimal()
-
-# Kurva Frekuensi Variabel X
-library(ggplot2)
-library(dplyr)
-
-data_long <- stack(data_X)
-
-# Hitung frekuensi setiap nilai per variabel
-freq_tbl <- data_long %>%
-  group_by(ind, values) %>%
-  summarise(freq = n(), .groups = "drop")
-
-# Smooth kurvanya
-ggplot(freq_tbl, aes(x = values, y = freq, color = ind)) +
-  geom_point(size = 2) +                        # frekuensi asli
-  geom_smooth(method = "loess", se = FALSE) +   # kurva melengkung
-  scale_x_continuous(breaks = 2:5) +            # nilai Likert
-  labs(
-    title = "Kurva Frekuensi Nilai Likert Variabel X",
-    x = "Nilai Likert",
-    y = "Frekuensi",
-    color = "Pertanyaan"
-  ) +
-  theme_minimal()
-
-
-# Kurva Y
-
-# Kurva Mean Variabel Y
-data_Y$overall_mean <- rowMeans(data_Y[, c("Y1","Y2","Y3","Y4","Y5","Y6","Y7")])
-mean_overall <- mean(data_Y$overall_mean)
-sd_overall   <- sd(data_Y$overall_mean)
-
-x_vals <- seq(1, 5, length.out = 300)
-
-gauss_curve <- data.frame(
-  x = x_vals,
-  density = (1 / (sd_overall * sqrt(2*pi))) * 
-    exp(-(x_vals - mean_overall)^2 / (2 * sd_overall^2))
-)
-
-ggplot(gauss_curve, aes(x = x, y = density)) +
-  geom_line(linewidth = 1.3, color = "blue") +
-  geom_vline(xintercept = mean_overall, 
-             linetype = "dashed", linewidth = 1) +
-  labs(
-    title = "Kurva Gaussian dari Rata-rata Likert Tiap Responden",
-    x = "Overall Mean Likert (1–5)",
-    y = "Density"
-  ) +
-  coord_cartesian(xlim = c(1, 5)) + 
-  theme_minimal()
-
-# Kurva Frekuensi Variabel Y
-library(ggplot2)
-library(dplyr)
-
-data_long <- stack(data_Y)
-
-# Hitung frekuensi setiap nilai per variabel
-freq_tbl <- data_long %>%
-  group_by(ind, values) %>%
-  summarise(freq = n(), .groups = "drop")
-
-# Smooth kurvanya
-ggplot(freq_tbl, aes(x = values, y = freq, color = ind)) +
-  geom_point(size = 2) +                        # frekuensi asli
-  geom_smooth(method = "loess", se = FALSE) +   # kurva melengkung
-  scale_x_continuous(breaks = 2:5) +            # nilai Likert
-  labs(
-    title = "Kurva Frekuensi Nilai Likert Variabel Y",
-    x = "Nilai Likert",
-    y = "Frekuensi",
-    color = "Pertanyaan"
-  ) +
-  theme_minimal()
-
-# Kurva Mean Gabungan
-
-# ===============================
-# KURVA GAUSSIAN XY (Likert 1–5)
-# ===============================
-
-library(ggplot2)
-library(dplyr)
-
-# --- 1. Gabungkan semua nilai Likert dari X dan Y ---
-data_all <- cbind(data_X, data_Y)
-
-# --- 2. Hitung rata-rata Likert tiap responden (gabungan X+Y) ---
-data_all$overall_mean <- rowMeans(data_all)
-
-# --- 3. Hitung mean dan standar deviasi keseluruhan ---
-mean_overall <- mean(data_all$overall_mean)
-sd_overall   <- sd(data_all$overall_mean)
-
-# --- 4. Buat rentang nilai Likert 1–5 ---
-x_vals <- seq(1, 5, length.out = 300)
-
-# --- 5. Buat fungsi Gaussian ---
-gauss_curve <- data.frame(
-  x = x_vals,
-  density = (1 / (sd_overall * sqrt(2*pi))) * 
-    exp(-(x_vals - mean_overall)^2 / (2 * sd_overall^2))
-)
-
-# --- 6. Plot kurva Gaussian ---
-ggplot(gauss_curve, aes(x = x, y = density)) +
-  geom_line(linewidth = 1.3, color = "blue") +
-  geom_vline(xintercept = mean_overall, 
-             linetype = "dashed", linewidth = 1) +
-  labs(
-    title = "Kurva Gaussian dari Rata-rata Likert X dan Y (per Responden)",
-    x = "Rata-rata Likert (1–5)",
-    y = "Density"
-  ) +
-  coord_cartesian(xlim = c(1, 5)) +
-  theme_minimal()
-
-# Tahap Ketiga Korelasi Pearson
-# ===============================
-# KORELASI PEARSON MEAN X & MEAN Y
-# ===============================
-
-library(dplyr)
-
-# --- 1. Hitung mean X per responden ---
-mean_X <- data_X %>% 
-  mutate(mean_X = rowMeans(across(everything()))) %>%
-  pull(mean_X)
-
-# --- 2. Hitung mean Y per responden ---
-mean_Y <- data_Y %>% 
-  mutate(mean_Y = rowMeans(across(everything()))) %>%
-  pull(mean_Y)
-
-# --- 3. Hitung Korelasi Pearson ---
-cor_result <- cor(mean_X, mean_Y, method = "pearson")
-
-# Tampilkan hasil
-cor_result
-
-
-
-# Kurva Scatter Plot
-library(ggplot2)
-library(dplyr)
-
-# === 1. Hitung Mean X per responden ===
-mean_X <- data_X %>% 
-  mutate(mean_X = rowMeans(across(everything()))) %>% 
-  pull(mean_X)
-
-# === 2. Hitung Mean Y per responden ===
-mean_Y <- data_Y %>% 
-  mutate(mean_Y = rowMeans(across(everything()))) %>% 
-  pull(mean_Y)
-
-# === 3. Gabungkan ke 1 data frame ===
-df_plot <- data.frame(mean_X, mean_Y)
-
-# === 4. Hitung Korelasi Pearson ===
-cor_value <- cor(mean_X, mean_Y, method = "pearson")
-
-# === 5. Scatterplot + garis regresi ===
-ggplot(df_plot, aes(x = mean_X, y = mean_Y)) +
-  geom_point(color = "blue", size = 3, alpha = 0.7) +     # Titik scatter
-  geom_smooth(method = "lm", color = "red", linewidth = 1.2, se = FALSE) +  # Garis regresi
+  geom_line(data = gauss_X, aes(x = x, y = density),
+            color = "#2171B5", linewidth = 1.5) +
+  geom_vline(xintercept = mu_X,
+             linetype = "dashed", color = "red", linewidth = 1) +
   annotate("text",
-           x = min(mean_X) + 0.1,
-           y = max(mean_Y) - 0.1,
-           label = paste("r =", round(cor_value, 3)),
-           size = 5,
-           hjust = 0,
-           color = "black") +
+           x     = mu_X + 0.05,
+           y     = max(gauss_X$density) * 0.95,
+           label = paste0("μ = ", round(mu_X, 3), "\nσ = ", round(sig_X, 3)),
+           hjust = 0, size = 4, color = "red") +
+  scale_x_continuous(breaks = 1:5, limits = c(1, 5)) +
   labs(
-    title = "Scatterplot Mean X vs Mean Y",
-    x = "Mean X per Responden",
-    y = "Mean Y per Responden"
+    title    = "Gaussian Curve – Average Likert Score of Variable X per Respondent",
+    subtitle = "Empirical histogram + normal distribution curve",
+    x        = "Likert's Mean X (1–5)",
+    y        = "Density"
   ) +
-  theme_minimal()
+  theme_bw(base_size = 12) +
+  theme(
+    plot.title    = element_text(face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5, color = "gray40")
+  )
 
-head(data_X)
-head(data_Y)
+print(plot_gauss_X)
 
-# Tahap Keempat Analisis Regresi Linear Sederhana
-# =======================================
-# REGRESI LINEAR SEDERHANA
-# X = Mean Variabel X per responden
-# Y = Mean Variabel Y per responden
-# =======================================
+# ============================================================
+# PLOT 4: Kurva Gaussian Mean Likert Variabel Y per Responden
+# ============================================================
 
-library(dplyr)
-library(ggplot2)
+mean_Y_resp <- rowMeans(data_Y, na.rm = TRUE)
+mu_Y  <- mean(mean_Y_resp)
+sig_Y <- sd(mean_Y_resp)
 
-# --- 1. Hitung Mean X per responden ---
-mean_X <- data_X %>%
-  mutate(mean_X = rowMeans(across(everything()), na.rm = TRUE)) %>%
-  pull(mean_X)
+gauss_Y <- data.frame(
+  x       = x_seq,
+  density = dnorm(x_seq, mean = mu_Y, sd = sig_Y)
+)
 
-# --- 2. Hitung Mean Y per responden ---
-mean_Y <- data_Y %>%
-  mutate(mean_Y = rowMeans(across(starts_with("Y")), na.rm = TRUE)) %>%
-  pull(mean_Y)
-
-# --- 3. Gabungkan data ---
-df_reg <- data.frame(mean_X, mean_Y)
-
-# --- 4. Bangun model regresi ---
-model <- lm(mean_Y ~ mean_X, data = df_reg)
-
-# --- 5. Tampilkan hasil regresi ---
-summary(model)
-
-# --- 6. Scatterplot + garis regresi ---
-ggplot(df_reg, aes(x = mean_X, y = mean_Y)) +
-  geom_point(size = 3, alpha = 0.6, color = "blue") +
-  geom_smooth(method = "lm", se = TRUE, color = "red", linewidth = 1.2) +
+plot_gauss_Y <- ggplot() +
+  geom_histogram(
+    data = data.frame(v = mean_Y_resp),
+    aes(x = v, y = after_stat(density)),
+    bins = 15, fill = "#E15759", alpha = 0.4, color = "white"
+  ) +
+  geom_line(data = gauss_Y, aes(x = x, y = density),
+            color = "#C0392B", linewidth = 1.5) +
+  geom_vline(xintercept = mu_Y,
+             linetype = "dashed", color = "navy", linewidth = 1) +
+  annotate("text",
+           x     = mu_Y + 0.05,
+           y     = max(gauss_Y$density) * 0.95,
+           label = paste0("μ = ", round(mu_Y, 3), "\nσ = ", round(sig_Y, 3)),
+           hjust = 0, size = 4, color = "navy") +
+  scale_x_continuous(breaks = 1:5, limits = c(1, 5)) +
   labs(
-    title = "Regresi Linear: Mean X → Mean Y",
-    x = "Mean X per Responden",
-    y = "Mean Y per Responden"
+    title    = "Gaussian Curve – Average Likert Score of Variable Y per Respondent",
+    subtitle = "Empirical histogram + normal distribution curve",
+    x        = "Likert's Mean (1–5)",
+    y        = "Density"
   ) +
-  theme_minimal()
+  theme_bw(base_size = 12) +
+  theme(
+    plot.title    = element_text(face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5, color = "gray40")
+  )
 
+print(plot_gauss_Y)
 
-# --- 1. MENGHITUNG MEAN PER BARIS (RESPONDEN) ---
-# Pastikan data_X dan data_Y hanya berisi angka (numeric)
+# ============================================================
+# 4. UJI KORELASI PEARSON
+# ============================================================
+
+cat("============================================================\n")
+cat("TAHAP 3: UJI KORELASI PEARSON\n")
+cat("============================================================\n\n")
+
+# Hitung Mean_X dan Mean_Y per responden
 Mean_X <- rowMeans(data_X, na.rm = TRUE)
 Mean_Y <- rowMeans(data_Y, na.rm = TRUE)
 
-# Membuat dataframe baru agar rapi
-df_final <- data.frame(Mean_X, Mean_Y)
+df_cor <- data.frame(Mean_X, Mean_Y)
 
-# Cek 5 data teratas
-print("Preview Data Mean:")
-head(df_final)
+# Uji korelasi Pearson (termasuk p-value dan confidence interval)
+hasil_korelasi <- cor.test(df_cor$Mean_X, df_cor$Mean_Y, method = "pearson")
 
-# --- 2. UJI KORELASI PEARSON ---
-korelasi <- cor.test(df_final$Mean_X, df_final$Mean_Y, method = "pearson")
+cat("--- Hasil Uji Korelasi Pearson ---\n")
+print(hasil_korelasi)
 
-print("=== HASIL KORELASI PEARSON ===")
-print(korelasi)
+cat("\nInterpretasi Nilai r:\n")
+r_val <- round(hasil_korelasi$estimate, 4)
+r_kat <- dplyr::case_when(
+  abs(r_val) >= 0.80 ~ "SANGAT KUAT",
+  abs(r_val) >= 0.60 ~ "KUAT",
+  abs(r_val) >= 0.40 ~ "SEDANG",
+  abs(r_val) >= 0.20 ~ "LEMAH",
+  TRUE               ~ "SANGAT LEMAH / TIDAK ADA"
+)
+cat("  r =", r_val, "\u2192 Korelasi", r_kat, "\n")
 
-# --- 3. REGRESI LINEAR ---
-# Rumus: Y (Dependen) ~ X (Independen)
-model_regresi <- lm(Mean_Y ~ Mean_X, data = df_final)
+p_val <- hasil_korelasi$p.value
+kat_p <- ifelse(p_val < 0.05, "SIGNIFIKAN (H0 ditolak)", "TIDAK SIGNIFIKAN")
+cat("  p-value =", format(p_val, scientific = TRUE, digits = 4), "→", kat_p, "\n")
 
-print("=== HASIL REGRESI LINEAR ===")
-summary(model_regresi)
+# ============================================================
+# PLOT 5: Scatter Plot Korelasi Pearson Mean_X vs Mean_Y
+# ============================================================
 
-# --- 4. VISUALISASI DATA & GARIS REGRESI ---
-plot(df_final$Mean_X, df_final$Mean_Y,
-     main = "Scatterplot & Garis Regresi",
-     xlab = "Mean Variabel X",
-     ylab = "Mean Variabel Y",
-     pch = 19,        # Bentuk titik (bulat penuh)
-     col = "blue")    # Warna titik
+# Hitung batas sumbu dinamis (padding 0.1 di setiap sisi)
+pad <- 0.15
+xlim_sc <- c(floor(min(Mean_X) * 10) / 10 - pad,
+             ceiling(max(Mean_X) * 10) / 10 + pad)
+ylim_sc <- c(floor(min(Mean_Y) * 10) / 10 - pad,
+             ceiling(max(Mean_Y) * 10) / 10 + pad)
 
-# Menambahkan garis regresi (warna merah)
-abline(model_regresi, col = "red", lwd = 2)
+plot_scatter <- ggplot(df_cor, aes(x = Mean_X, y = Mean_Y)) +
+  geom_point(color = "#2C3E7A", size = 3, alpha = 0.65, shape = 16) +
+  geom_smooth(method = "lm", color = "#E74C3C", linewidth = 1.3,
+              fill = "#F1948A", alpha = 0.2) +
+  annotate("text",
+           x     = xlim_sc[1] + 0.05,
+           y     = ylim_sc[2] - 0.05,
+           label = paste0("r = ", round(hasil_korelasi$estimate, 3),
+                          "\np = ", format(p_val, digits = 3, scientific = TRUE),
+                          "\nn = ", nrow(df_cor)),
+           hjust = 0, vjust = 1, size = 4.5,
+           color = "#1A252F",
+           fontface = "italic") +
+  coord_cartesian(xlim = xlim_sc, ylim = ylim_sc) +
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 6)) +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 6)) +
+  labs(
+    title    = "Scatter Plot: Mean X vs Mean Y",
+    subtitle = "Pearson Correlation Test between the Mean of Variable X and Variable Y",
+    x        = "Mean of Variable X per Respondent",
+    y        = "Mean of Variable Y per Respondent",
+    caption  = "Red line = linear regression line; gray area = 95% confidence interval"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(
+    plot.title    = element_text(face = "bold", hjust = 0.5, size = 14),
+    plot.subtitle = element_text(hjust = 0.5, color = "gray40"),
+    plot.caption  = element_text(color = "gray50", size = 9)
+  )
+
+print(plot_scatter)
+
+# ============================================================
+# 5. ANALISIS REGRESI LINEAR SEDERHANA
+# ============================================================
+
+cat("============================================================\n")
+cat("TAHAP 4: ANALISIS REGRESI LINEAR SEDERHANA\n")
+cat("         Y = a + b*X  (Mean_Y ~ Mean_X)\n")
+cat("============================================================\n\n")
+
+model_reg <- lm(Mean_Y ~ Mean_X, data = df_cor)
+ringkasan <- summary(model_reg)
+
+print(ringkasan)
+
+# Ekstrak koefisien
+a_intercept <- coef(model_reg)[1]
+b_slope     <- coef(model_reg)[2]
+r_squared   <- ringkasan$r.squared
+adj_r2      <- ringkasan$adj.r.squared
+f_stat      <- ringkasan$fstatistic
+p_model     <- pf(f_stat[1], f_stat[2], f_stat[3], lower.tail = FALSE)
+
+cat("\n--- Ringkasan Regresi ---\n")
+cat(sprintf("  Persamaan Regresi  : Ŷ = %.4f + %.4f · X\n", a_intercept, b_slope))
+cat(sprintf("  R²                 : %.4f (%.2f%% variansi Y dijelaskan oleh X)\n",
+            r_squared, r_squared * 100))
+cat(sprintf("  Adjusted R²        : %.4f\n", adj_r2))
+cat(sprintf("  F-statistic        : %.4f  (df1=%d, df2=%d)\n",
+            f_stat[1], f_stat[2], f_stat[3]))
+kat_model <- ifelse(p_model < 0.05, "Model SIGNIFIKAN", "Model TIDAK SIGNIFIKAN")
+cat(sprintf("  p-value model      : %s  → %s\n",
+            format(p_model, scientific = TRUE, digits = 4),
+            kat_model))
+
+# ============================================================
+# PLOT 6: Scatter Plot + Garis Regresi + Persamaan
+# ============================================================
+
+eq_label <- paste0(
+  "Ŷ = ", round(a_intercept, 3), " + ", round(b_slope, 3), "X",
+  "\nR² = ", round(r_squared, 4),
+  "\np = ", format(p_model, digits = 3, scientific = TRUE)
+)
+
+plot_regresi <- ggplot(df_cor, aes(x = Mean_X, y = Mean_Y)) +
+  geom_point(color = "#154360", size = 3, alpha = 0.65, shape = 16) +
+  geom_smooth(method = "lm", color = "#E74C3C", linewidth = 1.3,
+              fill = "#F5B7B1", alpha = 0.25, se = TRUE) +
+  annotate("label",
+           x        = xlim_sc[1] + 0.05,
+           y        = ylim_sc[2] - 0.05,
+           label    = eq_label,
+           hjust    = 0, vjust = 1,
+           size     = 4, color = "#1A252F",
+           fill     = "white",
+           fontface = "italic") +
+  coord_cartesian(xlim = xlim_sc, ylim = ylim_sc) +
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 6)) +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 6)) +
+  labs(
+    title    = "Simple Linear Regression: Mean X vs Mean Y",
+    subtitle = "The effect of the average score of Variable X on the average score of Variable Y",
+    x        = "Mean of Variable X (Independent)",
+    y        = "Mean of Variable Y (Dependent)",
+    caption  = "Red line = regression line; gray area = 95% confidence interval"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(
+    plot.title    = element_text(face = "bold", hjust = 0.5, size = 14),
+    plot.subtitle = element_text(hjust = 0.5, color = "gray40"),
+    plot.caption  = element_text(color = "gray50", size = 9)
+  )
+
+print(plot_regresi)
+
+# ============================================================
+# 6. ASUMSI REGRESI: PLOT DIAGNOSTIK
+# ============================================================
+
+cat("\n--- Plot Diagnostik Model Regresi ---\n")
+cat("(Residuals vs Fitted, Q-Q Plot, Scale-Location, Leverage)\n")
+
+par(mfrow = c(2, 2))
+plot(model_reg, pch = 16, col = "#2C3E7A")
+par(mfrow = c(1, 1))
